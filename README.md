@@ -1,2 +1,0 @@
-# NT_Contest
- 
