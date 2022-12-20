@@ -26,11 +26,23 @@ def qr_decoding(contours, strings, image):
     detect = cv2.QRCodeDetector()
     for c in contours:
         x1, y1, w1, h1 = cv2.boundingRect(c)
-        decoded, _, _ = detect.detectAndDecode(image[y1:y1 + h1, x1:x1 + w1])
-        cv2.imshow('image', image[y1:y1 + h1, x1:x1 + w1])
-        cv2.waitKey(1000)
-        if ";" in decoded:
-            strings[i][j] = decoded
+        scan = image[y1:y1 + h1, x1:x1 + w1]
+        blur1 = cv2.GaussianBlur(image[y1:y1 + h1, x1:x1 + w1], (21, 21), 125)
+        temp = cv2.threshold(blur1, 195, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+        qrs = cv2.findContours(temp, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+        qrs = [q for q in qrs if (cv2.contourArea(q) > 90 * 90) and (cv2.contourArea(q) < 105 * 105)]
+        for q in qrs:
+            x2, y2, w2, h2 = cv2.boundingRect(q)
+            scan = scan[y2:y2 + h2, x2:x2 + w2]
+            scan = cv2.resize(scan, (int(scan.shape[1]*1.64), int(scan.shape[0]*1.64)))
+            scan = cv2.threshold(scan, 145, 255, cv2.THRESH_TOZERO + cv2.THRESH_BINARY)[1]
+            scan = cv2.threshold(scan, 195, 255, cv2.THRESH_TOZERO + cv2.THRESH_BINARY)[1]
+            kernel = np.array([[-1, -1, -1], [-1, 11, -1], [-1, -1, -1]])
+            scan = cv2.filter2D(scan, -1, kernel)
+            decoded, _, _ = detect.detectAndDecode(scan)
+            if ";" in decoded:
+                strings[i][j] = decoded
+                break
         j += 1
         if j == rows:
             j = 0
@@ -38,9 +50,8 @@ def qr_decoding(contours, strings, image):
     return strings
 
 
-cv2.setNumThreads(3)
-url = 'https://stepik.org/media/attachments/course/128568/shelfQR0.png'
-response = requests.get(url, verify=False)
+url = input()
+response = requests.get(url)
 if response.status_code == 200:
     with open("shelf.png", 'wb') as f:
         f.write(response.content)
@@ -50,8 +61,6 @@ img_ = 255*(raw < 128).astype(np.uint8)
 coords = cv2.findNonZero(img_)
 x, y, w, h = cv2.boundingRect(coords)
 img = raw[y:y+h, x:x+w]
-cv2.imshow('image', img)
-cv2.waitKey(1000)
 cnts = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[1]
 cnts = [c for c in cnts if (cv2.contourArea(c) > 110*110) and (cv2.contourArea(c) < 300*300)]
 cnts = cnts[::-1]
